@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-08-31T22:06:18Z",
+  "total_samples": 4329,
+  "benign_samples": 2700,
+  "injection_samples": 994,
+  "exhaustion_samples": 635,
+  "accuracy": 0.9841,
+  "features": [
+    "prompt_length_tokens",
+    "jailbreak_similarity",
+    "semantic_similarity",
+    "repetition_ratio",
+    "predicted_output_tokens",
+    "session_repeat_count"
+  ],
+  "embedding_model": "all-MiniLM-L6-v2"
+}

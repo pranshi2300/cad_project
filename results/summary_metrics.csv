@@ -1,0 +1,10 @@
+batch,system,total_cost_usd,avg_latency_overhead_ms,detection_rate_overall,detection_rate_injection,detection_rate_exhaustion,false_positive_rate,n_requests,cost_savings_vs_no_protection_pct
+Batch A (in-distribution),no_protection,17.822286076562985,0.0,0.0,0.0,0.0,0.0,5000,0.0
+Batch A (in-distribution),keyword_blocklist,17.155075775625996,0.8,0.495,0.99,0.0,0.00045454545454545455,5000,3.7436852829693827
+Batch A (in-distribution),proposed_invention,7.790061812699047,4.5,1.0,1.0,1.0,0.0,5000,56.29033346657314
+"Batch B (drift, pre-retrain)",no_protection,9.560487532549516,0.0,0.0,0.0,0.0,0.0,5000,0.0
+"Batch B (drift, pre-retrain)",keyword_blocklist,8.941859159683336,0.8,0.485,0.97,0.0,0.0006818181818181819,5000,6.470678098371087
+"Batch B (drift, pre-retrain)",proposed_invention,8.892863328447271,4.5,0.515,1.0,0.03,0.0,5000,6.9831606581699885
+"Batch C (drift, post-retrain)",no_protection,9.630582945363432,0.0,0.0,0.0,0.0,0.0,5000,0.0
+"Batch C (drift, post-retrain)",keyword_blocklist,8.972416099624951,0.8,0.49166666666666664,0.9833333333333333,0.0,0.00045454545454545455,5000,6.8341329852244375
+"Batch C (drift, post-retrain)",proposed_invention,7.896754435868045,4.5,0.975,1.0,0.95,0.0022727272727272726,5000,18.00335991426277

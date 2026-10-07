@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive LLM Router — Intelligent Risk & Resource Gateway</title>
+  <meta name="description" content="Production-grade ML security gateway for LLM inference. Classifies requests in 3ms via dual lexical and semantic embedding analysis, routing to Full, Sandbox, or Quarantine tiers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════════
+       DESIGN SYSTEM & TOKENS
+    ═══════════════════════════════════════════════ */
+    :root {
+      --bg-base:        #06070d;
+      --bg-surface:     rgba(13, 16, 27, 0.75);
+      --bg-card:        rgba(19, 24, 38, 0.65);
+      --bg-glass:       rgba(255, 255, 255, 0.035);
+      --bg-glass-hover: rgba(255, 255, 255, 0.07);
+      --bg-input:       rgba(10, 13, 22, 0.85);
+
+      --border-subtle:  rgba(255, 255, 255, 0.06);
+      --border-mid:     rgba(255, 255, 255, 0.12);
+      --border-focus:   rgba(168, 85, 247, 0.5);
+
+      --text-primary:   #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted:     #64748b;
+      --text-dim:       #475569;
+
+      --tier-full:       #10b981;
+      --tier-full-glow:  rgba(16, 185, 129, 0.25);
+      --tier-sand:       #f59e0b;
+      --tier-sand-glow:  rgba(245, 158, 11, 0.25);
+      --tier-quar:       #ef4444;
+      --tier-quar-glow:  rgba(239, 68, 68, 0.35);
+
+      --accent-purple:   #a855f7;
+      --accent-cyan:     #06b6d4;
+      --accent-blue:     #3b82f6;
+
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --radius-sm:  8px;
+      --radius-md:  12px;
+      --radius-lg:  18px;
+      --radius-xl:  24px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient dynamic glow mesh */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 900px 500px at 10% 15%, rgba(168, 85, 247, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 800px 600px at 90% 85%, rgba(6, 182, 212, 0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 400px at 50% 50%, rgba(59, 130, 246, 0.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app-container {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ═══════════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════════ */
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: rgba(6, 7, 13, 0.82);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #a855f7 0%, #06b6d4 100%);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 24px rgba(168, 85, 247, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-tag {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(168, 85, 247, 0.12);
+      color: var(--accent-purple);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-mid);
+      border-radius: 30px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      backdrop-filter: blur(12px);
+    }
+
+    .indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .indicator-dot.online {
+      background: var(--tier-full);
+      box-shadow: 0 0 10px var(--tier-full);
+      animation: pulse-dot 2s infinite;
+    }
+    .indicator-dot.offline {
+      background: var(--tier-sand);
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    .engine-chip {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      padding: 5px 12px;
+      border-radius: 20px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       WORKSPACE LAYOUT
+    ═══════════════════════════════════════════════ */
+    .workspace {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      flex: 1;
+      height: calc(100vh - 69px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 1040px) {
+      .workspace { grid-template-columns: 1fr; height: auto; overflow: visible; }
+    }
+
+    /* ═══════════════════════════════════════════════
+       LEFT PANEL — REQUEST CRAFTING
+    ═══════════════════════════════════════════════ */
+    .craft-panel {
+      border-right: 1px solid var(--border-subtle);
+      background: rgba(8, 10, 18, 0.55);
+      backdrop-filter: blur(20px);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .section-headline {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .tab-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: var(--bg-card);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover { color: var(--text-primary); background: var(--bg-glass-hover); }
+    .tab-btn.active-benign     { background: rgba(16, 185, 129, 0.15); color: var(--tier-full); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .tab-btn.active-injection  { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+    .tab-btn.active-exhaustion { background: rgba(239, 68, 68, 0.15); color: var(--tier-quar); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preset-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      font-family: var(--font-sans);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .preset-card:hover {
+      background: var(--bg-glass-hover);
+      border-color: var(--border-mid);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .prompt-editor {
+      width: 100%;
+      flex: 1;
+      min-height: 200px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      line-height: 1.7;
+      resize: vertical;
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .prompt-editor:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .prompt-editor::placeholder { color: var(--text-dim); }
+
+    .editor-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .meta-metrics {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .dispatch-btn {
+      background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%);
+      color: #ffffff;
+      border: none;
+      padding: 11px 24px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 18px rgba(168, 85, 247, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dispatch-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(168, 85, 247, 0.5);
+    }
+    .dispatch-btn:active { transform: translateY(0); }
+    .dispatch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════════
+       RIGHT PANEL — INTELLIGENCE & TELEMETRY
+    ═══════════════════════════════════════════════ */
+    .telemetry-panel {
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(6, 182, 212, 0.08));
+      border: 1px solid var(--border-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .results-container {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .results-container.hidden { display: none; }
+
+    /* Glass card component */
+    .glass-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 20px 24px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card-header-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+    }
+
+    /* ── Top Decision Bar ── */
+    .decision-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .tier-badge-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      width: fit-content;
+      text-transform: uppercase;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .tier-badge.full {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--tier-full);
+      box-shadow: 0 0 24px var(--tier-full-glow);
+    }
+    .tier-badge.sandbox {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--tier-sand);
+      box-shadow: 0 0 24px var(--tier-sand-glow);
+    }
+    .tier-badge.quarantine {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: var(--tier-quar);
+      box-shadow: 0 0 28px var(--tier-quar-glow);
+      animation: pulse-quarantine 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-quarantine {
+      0%, 100% { box-shadow: 0 0 28px var(--tier-quar-glow); }
+      50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }
+    }
+
+    .tier-explanation {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      max-width: 420px;
+      line-height: 1.5;
+    }
+
+    /* Gauge */
+    .gauge-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #gauge-arc-fill {
+      stroke-dasharray: 251.3;
+      stroke-dashoffset: 251.3;
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.34, 1.25, 0.64, 1);
+    }
+
+    /* ── Probability Pills ── */
+    .prob-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .prob-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .prob-score {
+      font-size: 22px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 2px;
+    }
+
+    .prob-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+
+    .prob-box.benign     { border-color: rgba(16, 185, 129, 0.2); }
+    .prob-box.benign .prob-score { color: var(--tier-full); }
+    .prob-box.injection  { border-color: rgba(168, 85, 247, 0.2); }
+    .prob-box.injection .prob-score { color: var(--accent-purple); }
+    .prob-box.exhaustion { border-color: rgba(239, 68, 68, 0.2); }
+    .prob-box.exhaustion .prob-score { color: var(--tier-quar); }
+
+    /* ── Feature Comparison Matrix ── */
+    .features-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .feature-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .feature-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .feat-name {
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .feat-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .track-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .fill-bar {
+      height: 100%;
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.7s cubic-bezier(0.34, 1.25, 0.64, 1);
+    }
+
+    .fill-bar.semantic  { background: linear-gradient(90deg, #a855f7, #c084fc); }
+    .fill-bar.lexical   { background: linear-gradient(90deg, #06b6d4, #38bdf8); }
+    .fill-bar.danger    { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .fill-bar.neutral   { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .fill-bar.safe      { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    /* ── Telemetry Stats Grid ── */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .telemetry-stat {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+
+    .stat-val {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 2px;
+    }
+
+    /* ── Response & Inspect Drawer ── */
+    .view-toggle-bar {
+      display: flex;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 3px;
+      border-radius: var(--radius-sm);
+    }
+
+    .view-toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .view-toggle-btn.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .response-content-area {
+      position: relative;
+    }
+
+    .response-stream-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      font-size: 13.5px;
+      line-height: 1.75;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      max-height: 420px;
+      overflow-y: auto;
+      word-break: break-word;
+    }
+
+    .blocked-quarantine-box {
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px dashed rgba(239, 68, 68, 0.35);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .quar-icon { font-size: 40px; }
+    .quar-title { font-size: 16px; font-weight: 700; color: var(--tier-quar); }
+    .quar-desc { font-size: 13px; color: var(--text-secondary); max-width: 440px; line-height: 1.6; }
+
+    .json-code-box {
+      background: #090c14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #93c5fd;
+      white-space: pre;
+      overflow-x: auto;
+      max-height: 380px;
+    }
+
+    .copy-chip-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-mid);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-chip-btn:hover { background: var(--bg-glass-hover); color: var(--text-primary); }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+
+  <!-- ═══════════════════════ TOP NAVIGATION ═══════════════════════ -->
+  <header class="top-nav">
+    <div class="brand-group">
+      <div class="brand-logo">🛡️</div>
+      <div>
+        <div class="brand-title">Adaptive LLM Router</div>
+        <div class="brand-subtitle">
+          Empirical Risk & Resource Gateway
+          <span class="pill-tag">AdvBench + MiniLM</span>
+        </div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <div class="status-badge">
+        <div class="indicator-dot" id="gateway-dot"></div>
+        <span id="gateway-status">Checking Gateway…</span>
+      </div>
+      <div class="engine-chip" id="engine-chip">llama3.2:3b</div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════ MAIN WORKSPACE ═══════════════════════ -->
+  <main class="workspace">
+
+    <!-- ──────────── LEFT: CRAFT PANEL ──────────── -->
+    <section class="craft-panel">
+      <div>
+        <div class="section-headline">
+          <span>Attack Archetype Library</span>
+          <span style="font-size: 10px; font-weight: 400; text-transform: none; color: var(--text-dim);">Real Datasets</span>
+        </div>
+        <div class="tab-strip" role="tablist">
+          <button class="tab-btn active-benign"     id="tab-benign"     onclick="switchCategory('benign')">✅ Benign</button>
+          <button class="tab-btn"                   id="tab-injection"  onclick="switchCategory('injection')">💉 Injection</button>
+          <button class="tab-btn"                   id="tab-exhaustion" onclick="switchCategory('exhaustion')">💥 Exhaustion</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="preset-grid" id="preset-grid">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+      <div class="editor-wrapper">
+        <div class="section-headline">
+          <span>Target Prompt Payload</span>
+          <span id="char-counter" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);">0 chars</span>
+        </div>
+        <textarea
+          id="prompt-input"
+          class="prompt-editor"
+          placeholder="Enter prompt text or select a preset benchmark from above…"
+          oninput="handlePromptChange()"
+        ></textarea>
+        
+        <div class="editor-bottom">
+          <div class="meta-metrics">
+            <span id="token-estimate">~0 tokens</span>
+            <span>•</span>
+            <span id="session-id-display">sess: anonymous</span>
+          </div>
+          <button class="dispatch-btn" id="dispatch-btn" onclick="submitRoutingRequest()">
+            <div class="spinner" id="btn-spinner"></div>
+            <span id="dispatch-label">Route Request</span>
+            <span id="dispatch-arrow">→</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ──────────── RIGHT: TELEMETRY & INTELLIGENCE ──────────── -->
+    <section class="telemetry-panel">
+
+      <!-- Empty State View -->
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">⚡</div>
+        <h2 style="font-size: 17px; font-weight: 700; color: var(--text-primary);">Awaiting Prompt Dispatch</h2>
+        <p style="font-size: 13px; color: var(--text-secondary); max-width: 360px;">
+          Choose a benchmark prompt or enter custom text. The router analyzes semantic embedding distance and token dynamics to make a sub-millisecond tier decision.
+        </p>
+      </div>
+
+      <!-- Live Results View -->
+      <div class="results-container hidden" id="results-container">
+
+        <!-- ── 1. Routing Decision & Gauge ── -->
+        <div class="glass-card">
+          <div class="card-header-bar">
+            <div class="card-header-title">Security & Resource Tier Decision</div>
+            <span id="subtype-badge" style="font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06);"></span>
+          </div>
+
+          <div class="decision-row">
+            <div class="tier-badge-container">
+              <div class="tier-badge" id="tier-badge">
+                <span id="tier-icon">●</span>
+                <span id="tier-label">FULL</span>
+              </div>
+              <div class="tier-explanation" id="tier-explanation"></div>
+            </div>
+
+            <!-- Gauge -->
+            <div class="gauge-card">
+              <svg viewBox="0 0 200 120" width="190" height="114" aria-label="Risk Score Gauge">
+                <defs>
+                  <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%"   stop-color="#10b981"/>
+                    <stop offset="40%"  stop-color="#f59e0b"/>
+                    <stop offset="100%" stop-color="#ef4444"/>
+                  </linearGradient>
+                </defs>
+                <!-- Base Track -->
+                <path d="M 20,90 A 80,80 0 0,1 180,90" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14" stroke-linecap="round"/>
+                <!-- Threshold Marker Sandbox (0.35) -->
+                <circle cx="56.2" cy="36.2" r="3.5" fill="#f59e0b" opacity="0.8"/>
+                <!-- Threshold Marker Quarantine (0.75) -->
+                <circle cx="143.8" cy="36.2" r="3.5" fill="#ef4444" opacity="0.8"/>
+                <!-- Active Arc Fill -->
+                <path id="gauge-arc-fill" d="M 20,90 A 80,80 0 0,1 180,90" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round"/>
+                <!-- Numeric Readout -->
+                <text id="gauge-num-readout" x="100" y="80" text-anchor="middle" font-size="28" font-weight="800" fill="#f8fafc" font-family="'Plus Jakarta Sans', sans-serif">0.000</text>
+                <text x="100" y="98" text-anchor="middle" font-size="8.5" font-weight="700" fill="#64748b" font-family="'Plus Jakarta Sans', sans-serif" letter-spacing="1.5">RISK SCORE</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 2. Classification Probabilities ── -->
+        <div class="glass-card">
+          <div class="card-header-bar">
+            <div class="card-header-title">Posterior Classification Probabilities</div>
+          </div>
+          <div class="prob-grid">
+            <div class="prob-box benign">
+              <div class="prob-score" id="prob-benign-val">100%</div>
+              <div class="prob-label">Benign Query</div>
+            </div>
+            <div class="prob-box injection">
+              <div class="prob-score" id="prob-injection-val">0.0%</div>
+              <div class="prob-label">Adversarial Injection</div>
+            </div>
+            <div class="prob-box exhaustion">
+              <div class="prob-score" id="prob-exhaustion-val">0.0%</div>
+              <div class="prob-label">DoS / Resource Sponge</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 3. Empirical Feature Matrix ── -->
+        <div class="glass-card">
+          <div class="card-header-bar">
+            <div class="card-header-title">Empirical Feature Matrix</div>
+            <span style="font-size: 11px; color: var(--text-muted);">Dual Semantic & Lexical Extraction</span>
+          </div>
+
+          <div class="features-list" id="features-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- ── 4. Telemetry Breakdown ── -->
+        <div class="glass-card">
+          <div class="card-header-bar">
+            <div class="card-header-title">System Performance & Cost Telemetry</div>
+          </div>
+          <div class="telemetry-grid">
+            <div class="telemetry-stat">
+              <div class="stat-val" id="stat-total-latency">0ms</div>
+              <div class="stat-lbl">Gateway Overhead</div>
+            </div>
+            <div class="telemetry-stat">
+              <div class="stat-val" id="stat-feat-time">0ms</div>
+              <div class="stat-lbl">Feature Extraction</div>
+            </div>
+            <div class="telemetry-stat">
+              <div class="stat-val" id="stat-cost">$0.000000</div>
+              <div class="stat-lbl">Estimated Compute Cost</div>
+            </div>
+            <div class="telemetry-stat">
+              <div class="stat-val" id="stat-savings">100%</div>
+              <div class="stat-lbl">FLOPs Preserved</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 5. LLM Response / Payload Inspector ── -->
+        <div class="glass-card">
+          <div class="card-header-bar">
+            <div class="card-header-title">Gateway Output Stream</div>
+            <div class="view-toggle-bar">
+              <button class="view-toggle-btn active" id="btn-view-visual" onclick="toggleView('visual')">Visual Output</button>
+              <button class="view-toggle-btn" id="btn-view-json" onclick="toggleView('json')">Inspect Payload</button>
+            </div>
+          </div>
+
+          <div class="response-content-area">
+            <!-- Visual View -->
+            <div id="visual-view">
+              <div id="response-target"></div>
+            </div>
+            <!-- JSON View -->
+            <div id="json-view" style="display: none;">
+              <button class="copy-chip-btn" onclick="copyJsonPayload()">Copy JSON</button>
+              <pre class="json-code-box" id="json-target"></pre>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /results-container -->
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   PRESET DATASET & STATE
+═══════════════════════════════════════════════════ */
+let PRESETS = {};
+let currentCategory = 'benign';
+let sessionIdentifier = 'sess_' + Math.random().toString(36).slice(2, 9);
+let isBusy = false;
+let currentPayload = null;
+
+const CATEGORY_CONFIG = {
+  benign:     { icon: '✅', label: 'Benign' },
+  injection:  { icon: '💉', label: 'Injection' },
+  exhaustion: { icon: '💥', label: 'Exhaustion' }
+};
+
+/* ═══════════════════════════════════════════════════
+   INITIALIZATION
+═══════════════════════════════════════════════════ */
+async function initializeApp() {
+  document.getElementById('session-id-display').textContent = 'sess: ' + sessionIdentifier;
+  await Promise.all([fetchSystemStatus(), fetchExamplePresets()]);
+}
+
+async function fetchSystemStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    const dot = document.getElementById('gateway-dot');
+    const statusText = document.getElementById('gateway-status');
+    const chip = document.getElementById('engine-chip');
+
+    if (data.ollama) {
+      dot.className = 'indicator-dot online';
+      statusText.textContent = data.target_ready ? 'Ollama Online' : 'Ollama (Model Missing)';
+      chip.textContent = data.target_model;
+    } else {
+      dot.className = 'indicator-dot offline';
+      statusText.textContent = 'Ollama Offline (Simulated Fallback)';
+    }
+  } catch (err) {
+    document.getElementById('gateway-dot').className = 'indicator-dot offline';
+    document.getElementById('gateway-status').textContent = 'Router Gateway Ready';
+  }
+}
+
+async function fetchExamplePresets() {
+  try {
+    const res = await fetch('/api/examples');
+    PRESETS = await res.json();
+    renderPresets('benign');
+  } catch (err) {
+    console.error('Failed to load preset prompts', err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   UI INTERACTION & TABS
+═══════════════════════════════════════════════════ */
+function switchCategory(cat) {
+  currentCategory = cat;
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.className = 'tab-btn');
+  document.getElementById('tab-' + cat).classList.add('active-' + cat);
+  renderPresets(cat);
+}
+
+function renderPresets(cat) {
+  const container = document.getElementById('preset-grid');
+  const items = PRESETS[cat] || [];
+  container.innerHTML = items.map((item, idx) => `
+    <button class="preset-card" onclick="applyPreset(${idx}, '${cat}')">
+      <span>${CATEGORY_CONFIG[cat].icon}</span>
+      <span>${escapeHtml(item.label)}</span>
+    </button>
+  `).join('');
+}
+
+function applyPreset(idx, cat) {
+  const item = (PRESETS[cat] || [])[idx];
+  if (!item) return;
+  const textarea = document.getElementById('prompt-input');
+  textarea.value = item.text;
+  handlePromptChange();
+}
+
+function handlePromptChange() {
+  const text = document.getElementById('prompt-input').value;
+  document.getElementById('char-counter').textContent = text.length + ' chars';
+  document.getElementById('token-estimate').textContent = '~' + Math.ceil(text.length / 4) + ' tokens';
+}
+
+function toggleView(view) {
+  document.getElementById('btn-view-visual').className = view === 'visual' ? 'view-toggle-btn active' : 'view-toggle-btn';
+  document.getElementById('btn-view-json').className = view === 'json' ? 'view-toggle-btn active' : 'view-toggle-btn';
+  document.getElementById('visual-view').style.display = view === 'visual' ? 'block' : 'none';
+  document.getElementById('json-view').style.display = view === 'json' ? 'block' : 'none';
+}
+
+function copyJsonPayload() {
+  if (!currentPayload) return;
+  navigator.clipboard.writeText(JSON.stringify(currentPayload, null, 2));
+  alert('JSON Payload copied to clipboard!');
+}
+
+/* ═══════════════════════════════════════════════════
+   ROUTING DISPATCH
+═══════════════════════════════════════════════════ */
+async function submitRoutingRequest() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt || isBusy) return;
+
+  isBusy = true;
+  setLoading(true);
+  showResultsPanel();
+
+  try {
+    const res = await fetch('/api/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, session_id: sessionIdentifier })
+    });
+    const payload = await res.json();
+    currentPayload = payload;
+    renderResults(payload);
+  } catch (err) {
+    renderError(err.message);
+  } finally {
+    isBusy = false;
+    setLoading(false);
+  }
+}
+
+function setLoading(loading) {
+  const btn = document.getElementById('dispatch-btn');
+  const spinner = document.getElementById('btn-spinner');
+  const label = document.getElementById('dispatch-label');
+  const arrow = document.getElementById('dispatch-arrow');
+
+  btn.disabled = loading;
+  spinner.style.display = loading ? 'block' : 'none';
+  arrow.style.display = loading ? 'none' : 'inline';
+  label.textContent = loading ? 'Analyzing Features…' : 'Route Request';
+}
+
+function showResultsPanel() {
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results-container').classList.remove('hidden');
+}
+
+/* ═══════════════════════════════════════════════════
+   RENDER RESULTS
+═══════════════════════════════════════════════════ */
+function renderResults(d) {
+  // 1. Tier Badge & Decision
+  const tier = d.tier || 'full';
+  const risk = d.risk_score || 0;
+  const subtype = d.subtype || 'benign';
+
+  const badge = document.getElementById('tier-badge');
+  badge.className = 'tier-badge ' + tier;
+  document.getElementById('tier-label').textContent = tier.toUpperCase();
+  document.getElementById('tier-icon').textContent = { full: '▶', sandbox: '⬛', quarantine: '⛔' }[tier] || '●';
+
+  const explanations = {
+    full:       `Risk score ${risk.toFixed(3)} — Safe execution. Uncapped compute allocation via primary GPU serving cluster.`,
+    sandbox:    `Risk score ${risk.toFixed(3)} — Elevated risk. Constrained execution capped at ${d.sandbox_token_cap || 256} tokens.`,
+    quarantine: `Risk score ${risk.toFixed(3)} — Critical anomaly. Dropped at gateway; GPU inference aborted to preserve compute.`
+  };
+  document.getElementById('tier-explanation').textContent = explanations[tier] || '';
+
+  const subChip = document.getElementById('subtype-badge');
+  subChip.textContent = 'Predicted Subtype: ' + subtype.toUpperCase();
+  subChip.style.color = subtype === 'benign' ? '#10b981' : subtype === 'injection' ? '#a855f7' : '#ef4444';
+
+  // 2. Arc Gauge Animation
+  const arcLen = 251.3;
+  const offset = arcLen * (1 - Math.min(risk, 1));
+  const arcFill = document.getElementById('gauge-arc-fill');
+  const numReadout = document.getElementById('gauge-num-readout');
+
+  requestAnimationFrame(() => {
+    arcFill.style.strokeDashoffset = offset;
+    numReadout.textContent = risk.toFixed(3);
+    numReadout.setAttribute('fill', risk < 0.35 ? '#10b981' : risk < 0.75 ? '#f59e0b' : '#ef4444');
+  });
+
+  // 3. Probabilities
+  const probs = d.probabilities || {};
+  document.getElementById('prob-benign-val').textContent = ((probs.benign || 0) * 100).toFixed(1) + '%';
+  document.getElementById('prob-injection-val').textContent = ((probs.injection || 0) * 100).toFixed(1) + '%';
+  document.getElementById('prob-exhaustion-val').textContent = ((probs.exhaustion || 0) * 100).toFixed(1) + '%';
+
+  // 4. Feature Matrix
+  renderFeatureMatrix(d.features || {});
+
+  // 5. Telemetry
+  document.getElementById('stat-total-latency').textContent = (d.total_latency_ms || 0) + 'ms';
+  document.getElementById('stat-feat-time').textContent = (d.feature_extract_ms || 0) + 'ms';
+  document.getElementById('stat-cost').textContent = '$' + (d.cost_usd || 0).toFixed(6);
+  document.getElementById('stat-savings').textContent = tier === 'quarantine' ? '100% FLOPs' : '0%';
+
+  // 6. Response Output
+  renderResponseStream(d);
+
+  // 7. Raw JSON
+  document.getElementById('json-target').textContent = JSON.stringify(d, null, 2);
+}
+
+function renderFeatureMatrix(feats) {
+  const list = document.getElementById('features-list');
+  const configs = [
+    { key: 'semantic_similarity',     label: 'Dense Semantic Similarity (MiniLM)', max: 1.0,  unit: 'cos-sim', cls: 'semantic', fmt: v => v.toFixed(4) },
+    { key: 'jailbreak_similarity',    label: 'Lexical TF-IDF Similarity',          max: 1.0,  unit: 'tf-idf',  cls: 'lexical',  fmt: v => v.toFixed(4) },
+    { key: 'repetition_ratio',        label: 'Bigram Repetition Density',          max: 1.0,  unit: 'ratio',   cls: 'danger',   fmt: v => v.toFixed(4) },
+    { key: 'prompt_length_tokens',    label: 'Prompt Token Length (tiktoken)',     max: 4096, unit: 'tokens',  cls: 'neutral',  fmt: v => v },
+    { key: 'predicted_output_tokens', label: 'Predicted Demand Heuristic',         max: 50000,unit: 'tokens',  cls: 'danger',   fmt: v => v.toLocaleString() },
+    { key: 'session_repeat_count',    label: 'Session Burst Frequency',            max: 15,   unit: 'reqs',    cls: 'neutral',  fmt: v => v }
+  ];
+
+  list.innerHTML = configs.map(c => {
+    const raw = feats[c.key] !== undefined ? feats[c.key] : 0;
+    const pct = Math.min((raw / c.max) * 100, 100);
+    return `
+      <div class="feature-item">
+        <div class="feature-title-row">
+          <span class="feat-name">${c.label}</span>
+          <span class="feat-val">${c.fmt(raw)} <span style="font-size: 10px; color: var(--text-muted);">${c.unit}</span></span>
+        </div>
+        <div class="track-bar">
+          <div class="fill-bar ${c.cls}" data-pct="${pct}" style="width: 0%;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.fill-bar').forEach(el => {
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
+}
+
+function renderResponseStream(d) {
+  const target = document.getElementById('response-target');
+  const llm = d.llm || {};
+
+  if (llm.blocked) {
+    target.innerHTML = `
+      <div class="blocked-quarantine-box">
+        <div class="quar-icon">⛔</div>
+        <div class="quar-title">Request Blocked by Security Gateway</div>
+        <div class="quar-desc">${escapeHtml(llm.reason || 'This query triggered safety thresholds and was halted before reaching the model cluster.')}</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!llm.ok) {
+    target.innerHTML = `
+      <div class="response-stream-box" style="border-color: rgba(245, 158, 11, 0.3);">
+        <p style="color: var(--tier-sand); font-weight: 600; margin-bottom: 8px;">⚠️ Local Ollama Not Connected</p>
+        <p style="color: var(--text-secondary); font-size: 12.5px;">
+          The multi-tier ML routing classification above completed in real-time. To see live LLM generation:
+          <br>1. Run <code>ollama pull llama3.2:3b</code>
+          <br>2. Resend your query.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="response-stream-box">
+      ${escapeHtml(llm.text || '')}
+    </div>
+    ${d.tier === 'sandbox' ? `
+      <div style="margin-top: 8px; font-size: 11px; color: var(--tier-sand); background: rgba(245,158,11,0.08); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2);">
+        ⬛ Sandbox Tier: Output truncated at ${d.sandbox_token_cap || 256} tokens.
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderError(msg) {
+  document.getElementById('response-target').innerHTML = `
+    <div class="blocked-quarantine-box" style="border-color: var(--tier-quar);">
+      <div class="quar-title">Gateway Dispatch Error</div>
+      <div class="quar-desc">${escapeHtml(msg)}</div>
+    </div>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+window.addEventListener('DOMContentLoaded', initializeApp);
+</script>
+</body>
+</html>

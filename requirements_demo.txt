@@ -1,0 +1,11 @@
+# Full dependencies for the Live Adaptive LLM Router
+flask==3.1.0
+flask-cors==5.0.0
+requests==2.32.3
+tiktoken==0.8.0
+sentence-transformers>=3.0.0
+joblib>=1.3.0
+xgboost>=2.0.0
+scikit-learn>=1.4.0
+pandas>=2.0.0
+numpy>=1.24.0
